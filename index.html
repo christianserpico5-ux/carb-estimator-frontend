@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snapshot Carb Estimator</title>
+    <style>
+        body { font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; text-align: center; }
+        input[type="number"], input[type="file"] { display: block; width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #28a745; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 1.1em; }
+        #results, #disclaimer { margin-top: 25px; padding: 15px; border-radius: 8px; }
+        #results { background-color: #e2f0d9; border: 2px solid #28a745; text-align: left; }
+        #disclaimer { background-color: #ffe0b2; color: #cc5500; font-size: 0.8em; }
+        .result-label { font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Meal Snapshot</h1>
+
+    <input type="number" id="current-bg" placeholder="Current BG (e.g., 155 mg/dL)" required>
+    
+    <label for="food-image">Take a photo of your food:</label>
+    <input type="file" id="food-image" accept="image/*" capture="environment" required>
+
+    <button onclick="sendForPrediction()">Get Estimate</button>
+
+    <div id="results" style="display: none;">
+        <h2>✨ Your Personalized Estimate</h2>
+        <p class="result-label">AI Adjusted Carbs:</p>
+        <p id="carb-estimate"></p>
+        <p class="result-label">Estimated Bolus (for reference):</p>
+        <p id="bolus-estimate"></p>
+        <p class="result-label">Predicted Peak BG:</p>
+        <p id="peak-bg"></p>
+        <p class="result-label">Timing Tip:</p>
+        <p id="timing-tip"></p>
+    </div>
+
+    <div id="disclaimer">
+        <p><strong>THIS IS AN ESTIMATION ONLY. NOT MEDICAL ADVICE.</strong> Consult your doctor before adjusting insulin.</p>
+    </div>
+
+    <script>
+        // *** IMPORTANT: REPLACE THIS URL with your live Render/Python API URL ***
+        // Example: https://carb-estimator-api.onrender.com/predict
+        const API_ENDPOINT = "YOUR_PYTHON_API_URL_HERE/predict"; 
+
+        async function sendForPrediction() {
+            const bgInput = document.getElementById('current-bg').value;
+            const imageFile = document.getElementById('food-image').files[0];
+            const resultsDiv = document.getElementById('results');
+
+            if (!bgInput || !imageFile) {
+                alert("Please enter your current BG and take a photo.");
+                return;
+            }
+
+            // 1. Prepare Data for API
+            const formData = new FormData();
+            formData.append('current_bg', bgInput);
+            formData.append('image_file', imageFile);
+
+            resultsDiv.style.display = 'block';
+            document.getElementById('carb-estimate').textContent = 'Calculating...';
+            document.getElementById('bolus-estimate').textContent = '';
+            document.getElementById('peak-bg').textContent = '';
+            document.getElementById('timing-tip').textContent = '';
+
+            try {
+                // 2. Call the External Python API
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 3. Display Results
+                document.getElementById('carb-estimate').textContent = data["Estimated Carbs (AI Adjusted)"];
+                document.getElementById('bolus-estimate').textContent = data["Recommended Bolus (Estimate)"];
+                document.getElementById('peak-bg').textContent = data["Predicted Peak BG"];
+                document.getElementById('timing-tip').textContent = data["Timing Note"];
+
+            } catch (error) {
+                console.error("Prediction failed:", error);
+                document.getElementById('carb-estimate').textContent = 'Error calculating estimate. Check console.';
+            }
+        }
+    </script>
+</body>
+</html>
